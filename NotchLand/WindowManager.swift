@@ -60,6 +60,7 @@ final class WindowManager: NSObject {
     private var pendingOnboardingFrameShrink: DispatchWorkItem?
     private var isPointerInsideNotch = false
     private var screenObserver: NSObjectProtocol?
+    private var spaceObserver: NSObjectProtocol?
     private var cancellables: Set<AnyCancellable> = []
 
     private enum ScrollSwipeDirection {
@@ -101,6 +102,9 @@ final class WindowManager: NSObject {
     deinit {
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
+        }
+        if let spaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)
         }
         if let localScrollMonitor {
             NSEvent.removeMonitor(localScrollMonitor)
@@ -229,8 +233,45 @@ final class WindowManager: NSObject {
             guard let self else { return }
             MainActor.assumeIsolated {
                 self.updateNotchFrame(animated: false)
+                self.reassertNotchPresence()
             }
         }
+
+        // Switching Spaces (including entering another app's fullscreen movie)
+        // can drop the panel out of its SkyLight space, leaving it behind the
+        // fullscreen window. Re-pin it whenever the active Space changes.
+        spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            MainActor.assumeIsolated {
+                self.reassertNotchPresence()
+            }
+        }
+    }
+
+    /// After a display or Space change the panel can fall out of its SkyLight
+    /// space (dropping behind fullscreen windows). Re-order it on screen and
+    /// re-delegate it into the high notch space so it stays above fullscreen
+    /// video and other fullscreen apps.
+    private func reassertNotchPresence() {
+        guard settings.showNotch || screenLock.currentPresentation != nil,
+              let panel = notchPanel else { return }
+        panel.orderFrontRegardless()
+        elevatePanelToActiveSpace()
+    }
+
+    /// Re-delegates the panel into its SkyLight space so it floats above
+    /// fullscreen apps. Safe to call repeatedly; the bridge no-ops when the
+    /// private SkyLight symbols are unavailable.
+    private func elevatePanelToActiveSpace() {
+        guard let panel = notchPanel else { return }
+        SkyLightWindowBridge.shared.delegateWindow(
+            panel,
+            to: screenLock.currentPresentation == nil ? .notchSurface : .lockScreenNotchOverlay
+        )
     }
 
     // MARK: - Show / Hide
@@ -249,6 +290,11 @@ final class WindowManager: NSObject {
         }
         updateNotchFrame(animated: false)
         notchPanel?.orderFrontRegardless()
+        // makePanel() delegates the panel into the SkyLight space before it has
+        // a valid windowNumber (it isn't on screen yet), so that first attempt
+        // can silently no-op and leave the notch below a fullscreen movie.
+        // Re-apply the elevation now that the panel is ordered on screen.
+        elevatePanelToActiveSpace()
     }
 
     private func hideNotchPanel() {
@@ -897,7 +943,33 @@ final class WindowManager: NSObject {
     }
 
     private func resolvedScreen(for panel: NSPanel?) -> NSScreen? {
-        panel?.screen ?? NSScreen.main ?? NSScreen.screens.first
+        // NotchLand must live on the display that actually has the physical
+        // notch. Falling back to `panel.screen`/`NSScreen.main` (as this used
+        // to) placed the notch on whichever display happened to be key — so on
+        // a multi-monitor setup it frequently landed on an external screen and
+        // "didn't appear where it should be". Pin it to the notched/built-in
+        // display and only fall back to the key/first screen when there is no
+        // built-in display at all (e.g. a Mac mini driving external monitors).
+        notchScreen() ?? panel?.screen ?? NSScreen.main ?? NSScreen.screens.first
+    }
+
+    /// The display NotchLand should anchor to, in order of preference:
+    /// 1. the screen exposing a top safe-area inset — i.e. the physical notch;
+    /// 2. the built-in display, even if it has no notch;
+    /// 3. `NSScreen.main`, then the first available screen.
+    private func notchScreen() -> NSScreen? {
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else { return nil }
+
+        if let notched = screens.first(where: { $0.safeAreaInsets.top > 0 }) {
+            return notched
+        }
+
+        if let builtIn = screens.first(where: { $0.isBuiltIn }) {
+            return builtIn
+        }
+
+        return NSScreen.main ?? screens.first
     }
 
     /// Mirrors `FloatingNotchView.currentVisibleSize` so the AppKit-level hover
@@ -1016,6 +1088,17 @@ final class WindowManager: NSObject {
 private final class NotchPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+}
+
+private extension NSScreen {
+    /// Whether this screen is the Mac's built-in display. Mirrors the
+    /// `CGDisplayIsBuiltin` check used elsewhere for display preference.
+    var isBuiltIn: Bool {
+        guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            return false
+        }
+        return CGDisplayIsBuiltin(number.uint32Value) != 0
+    }
 }
 
 private final class NotchHostingView<Content: View>: NSHostingView<Content> {

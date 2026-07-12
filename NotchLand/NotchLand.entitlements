@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Hardened Runtime is enabled for NotchLand (ENABLE_HARDENED_RUNTIME = YES).
+	  Under Hardened Runtime the system withholds access to protected resources
+	  unless the app declares the matching resource-access entitlement — the
+	  NSCalendars*UsageDescription strings only supply the prompt text. Without
+	  this entitlement EventKit's requestFullAccessToEvents returns granted =
+	  false ("Calendar access was not granted") and the permission prompt never
+	  appears, leaving the connection stuck as "Not Connected".
+	-->
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
+</dict>
+</plist>

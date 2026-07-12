@@ -134,13 +134,28 @@ struct CalendarSettingsView: View {
             .buttonStyle(.borderedProminent)
             .disabled(calendar.isLoading)
         } else if calendar.needsConnection {
-            Button {
-                calendar.requestAccess()
-            } label: {
-                Label("Connect", systemImage: "link")
+            HStack(spacing: 8) {
+                Button {
+                    calendar.requestAccess()
+                } label: {
+                    Label("Connect", systemImage: "link")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(calendar.isLoading)
+
+                // If a previous request failed while access is still
+                // undetermined, the system prompt was suppressed and clicking
+                // Connect again does nothing. Offer a direct route to toggle
+                // access in System Settings so the user isn't stuck.
+                if calendar.errorMessage != nil {
+                    Button {
+                        openCalendarPrivacySettings()
+                    } label: {
+                        Label("Open Settings", systemImage: "gearshape")
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(calendar.isLoading)
         } else {
             Button {
                 openCalendarPrivacySettings()
