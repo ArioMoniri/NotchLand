@@ -1,0 +1,108 @@
+name: Build macOS app (unsigned)
+
+# Builds NotchLand.app on a macOS runner with ad-hoc code signing (identity "-")
+# and NO notarization, then uploads the .app as a downloadable artifact so it can
+# be tested on a real Mac. Ad-hoc signing (rather than disabling signing) is
+# deliberate: it embeds the Hardened Runtime entitlements — including the
+# calendar entitlement — which is what the app needs to be granted Calendar
+# access. Because the build is not Developer-ID signed or notarized, Gatekeeper
+# will quarantine it; see the run summary for how to launch it.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - claude/calendar-connection-issue-ukitke
+
+concurrency:
+  group: build-mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # NotchLand targets macOS 26.3, so it needs the macOS 26 SDK (Xcode 26).
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
+
+      - name: Resolve Swift Package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project NotchLand.xcodeproj \
+            -scheme NotchLand
+
+      - name: Build (Release, ad-hoc signed, no notarization)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project NotchLand.xcodeproj \
+            -scheme NotchLand \
+            -configuration Release \
+            -derivedDataPath build \
+            -destination 'generic/platform=macOS' \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            clean build
+
+      - name: Locate and verify the app
+        id: app
+        run: |
+          APP_PATH="build/Build/Products/Release/NotchLand.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "::error::Build product not found at $APP_PATH"
+            exit 1
+          fi
+          echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
+          echo "Signature:"
+          codesign -dvvv "$APP_PATH" 2>&1 || true
+          echo "Embedded entitlements:"
+          codesign -d --entitlements :- "$APP_PATH" 2>&1 || true
+
+      - name: Zip the app
+        run: |
+          ditto -c -k --keepParent \
+            "${{ steps.app.outputs.app_path }}" \
+            "NotchLand-ci.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NotchLand-app
+          path: NotchLand-ci.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: How to run this build
+        if: always()
+        run: |
+          {
+            echo "## NotchLand — unsigned test build"
+            echo ""
+            echo "Download the **NotchLand-app** artifact below and unzip it."
+            echo ""
+            echo "Because this build is ad-hoc signed (not Developer-ID / not"
+            echo "notarized), macOS Gatekeeper will block it on first launch."
+            echo "Clear the quarantine flag, then open it:"
+            echo ""
+            echo '```sh'
+            echo 'xattr -dr com.apple.quarantine ~/Downloads/NotchLand.app'
+            echo 'open ~/Downloads/NotchLand.app'
+            echo '```'
+            echo ""
+            echo "Then open **Settings → Calendar → Connect** and allow access."
+            echo "Ad-hoc builds get a fresh identity each build, so macOS may"
+            echo "ask you to grant Calendar access again after each new build."
+          } >> "$GITHUB_STEP_SUMMARY"
