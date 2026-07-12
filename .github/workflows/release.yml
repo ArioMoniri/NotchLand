@@ -1,0 +1,142 @@
+name: Release macOS app
+
+# Publishes a tagged build as a GitHub Release with a PERMANENT download link
+# (unlike the 14-day CI artifact). Push a tag like `v1.1.1` — or run manually and
+# supply a tag — to build, ad-hoc sign, zip, and attach NotchLand to a Release.
+#
+# Optional in-app auto-update (Sparkle): if a repository secret named
+# SPARKLE_ED_PRIVATE_KEY is present, this also signs the update and generates an
+# appcast.xml attached to the release, which the app's SUFeedURL points at.
+# NOTE: fully seamless auto-update also needs a Developer-ID-signed + notarized
+# app; an ad-hoc build will still trip Gatekeeper on the downloaded update.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build (e.g. v1.1.1)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve Swift Package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project NotchLand.xcodeproj -scheme NotchLand
+
+      - name: Build (Release, ad-hoc signed)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project NotchLand.xcodeproj \
+            -scheme NotchLand \
+            -configuration Release \
+            -derivedDataPath build \
+            -destination 'generic/platform=macOS' \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            clean build
+
+      - name: Re-sign app (disable library validation)
+        id: app
+        run: |
+          APP_PATH="build/Build/Products/Release/NotchLand.app"
+          codesign --force --sign - --options runtime \
+            --entitlements NotchLand/NotchLand.CI.entitlements \
+            "$APP_PATH"
+          codesign --verify --strict --verbose=2 "$APP_PATH" 2>&1 || true
+          echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Package zip
+        id: pkg
+        run: |
+          ZIP="NotchLand-${{ steps.tag.outputs.tag }}.zip"
+          ditto -c -k --keepParent "${{ steps.app.outputs.app_path }}" "$ZIP"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Generate signed Sparkle appcast (optional)
+        id: appcast
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          if [ -z "${SPARKLE_ED_PRIVATE_KEY}" ]; then
+            echo "SPARKLE_ED_PRIVATE_KEY secret not set — skipping appcast."
+            echo "has_appcast=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          brew install --quiet sparkle || true
+          SIGN_UPDATE="$(command -v sign_update || true)"
+          if [ -z "$SIGN_UPDATE" ]; then
+            SIGN_UPDATE="$(ls /opt/homebrew/Caskroom/sparkle/*/bin/sign_update 2>/dev/null | head -1 || true)"
+          fi
+          if [ -z "$SIGN_UPDATE" ]; then
+            echo "::warning::sign_update tool not found; skipping appcast."
+            echo "has_appcast=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ZIP="${{ steps.pkg.outputs.zip }}"
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${TAG#v}"
+          SIG_OUTPUT="$("$SIGN_UPDATE" "$ZIP" --ed-key-file <(printf '%s' "$SPARKLE_ED_PRIVATE_KEY"))"
+          LENGTH="$(stat -f%z "$ZIP")"
+          URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${ZIP}"
+          {
+            echo '<?xml version="1.0" encoding="utf-8"?>'
+            echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">'
+            echo '  <channel>'
+            echo '    <title>NotchLand</title>'
+            echo "    <item>"
+            echo "      <title>${VERSION}</title>"
+            echo "      <sparkle:version>${VERSION}</sparkle:version>"
+            echo "      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"
+            echo "      <enclosure url=\"${URL}\" length=\"${LENGTH}\" type=\"application/octet-stream\" ${SIG_OUTPUT} />"
+            echo "    </item>"
+            echo '  </channel>'
+            echo '</rss>'
+          } > appcast.xml
+          echo "has_appcast=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: NotchLand ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.pkg.outputs.zip }}
+            ${{ steps.appcast.outputs.has_appcast == 'true' && 'appcast.xml' || '' }}
+          body: |
+            Unsigned (ad-hoc) macOS build of NotchLand ${{ steps.tag.outputs.tag }}.
+
+            Download `NotchLand-${{ steps.tag.outputs.tag }}.zip`, unzip, then:
+
+            ```sh
+            xattr -dr com.apple.quarantine ~/Downloads/NotchLand.app
+            open ~/Downloads/NotchLand.app
+            ```

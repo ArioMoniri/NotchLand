@@ -45,6 +45,7 @@ final class WindowManager: NSObject {
     private let liveActivities: LiveActivityController
     private let notchTimer: NotchTimerController
     private let updater: UpdaterController
+    private let clipboard: ClipboardHistoryController
 
     private var notchPanel: NotchPanel?
     private var dragMonitors: [Any] = []
@@ -82,7 +83,8 @@ final class WindowManager: NSObject {
         airDrop: AirDropController,
         liveActivities: LiveActivityController,
         notchTimer: NotchTimerController,
-        updater: UpdaterController
+        updater: UpdaterController,
+        clipboard: ClipboardHistoryController
     ) {
         self.settings = settings
         self.appState = appState
@@ -97,6 +99,7 @@ final class WindowManager: NSObject {
         self.liveActivities = liveActivities
         self.notchTimer = notchTimer
         self.updater = updater
+        self.clipboard = clipboard
         super.init()
     }
 
@@ -194,6 +197,14 @@ final class WindowManager: NSObject {
         appState.$isExpanded
             .dropFirst()
             .removeDuplicates()
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshStatusMenu() }
+            }
+            .store(in: &cancellables)
+
+        // Keep the menu-bar clipboard-history submenu current.
+        clipboard.$entries
+            .dropFirst()
             .sink { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshStatusMenu() }
             }
@@ -666,6 +677,8 @@ final class WindowManager: NSObject {
         menu.addItem(expandItem)
 
         menu.addItem(.separator())
+        menu.addItem(makeClipboardMenuItem())
+        menu.addItem(.separator())
         menu.addItem(makeMenuItem(title: "Settings", action: #selector(openCompanionWindow), key: ","))
         menu.addItem(makeMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), key: ""))
         menu.addItem(.separator())
@@ -676,6 +689,57 @@ final class WindowManager: NSObject {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.target = self
         return item
+    }
+
+    private func makeClipboardMenuItem() -> NSMenuItem {
+        let root = NSMenuItem(title: "Clipboard History", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+
+        if clipboard.entries.isEmpty {
+            let empty = NSMenuItem(title: "Empty", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            submenu.addItem(empty)
+        } else {
+            for entry in clipboard.entries {
+                let item = NSMenuItem(
+                    title: Self.clipboardMenuTitle(for: entry.text),
+                    action: #selector(copyClipboardEntry(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.representedObject = entry.id
+                submenu.addItem(item)
+            }
+            submenu.addItem(.separator())
+            let clearItem = NSMenuItem(title: "Clear History", action: #selector(clearClipboard), keyEquivalent: "")
+            clearItem.target = self
+            submenu.addItem(clearItem)
+        }
+
+        root.submenu = submenu
+        return root
+    }
+
+    /// Collapse a clipboard entry to a single, length-limited menu line.
+    private static func clipboardMenuTitle(for text: String) -> String {
+        let collapsed = text
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\t", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        let limit = 48
+        guard collapsed.count > limit else { return collapsed }
+        return String(collapsed.prefix(limit)) + "…"
+    }
+
+    @objc private func copyClipboardEntry(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? UUID,
+              let entry = clipboard.entry(with: id) else { return }
+        clipboard.copy(entry)
+    }
+
+    @objc private func clearClipboard() {
+        clipboard.clear()
     }
 
     @objc private func toggleNotch() {
