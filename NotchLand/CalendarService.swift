@@ -36,6 +36,12 @@ final class CalendarService: ObservableObject {
 
     nonisolated static let holidayKeywords: [String] = ["holiday", "holidays", "birthdays"]
 
+    /// Events longer than this are treated like all-day/multi-day blocks and
+    /// never drive the countdown chip. Without this, a multi-day event that is
+    /// currently in progress shows its full remaining time (e.g. "133h 40m"),
+    /// ignoring the user's "show within X minutes" rule.
+    nonisolated static let maxCountdownDuration: TimeInterval = 24 * 60 * 60
+
     private static let refreshInterval: TimeInterval = 60
     private static let connectionEnabledKey = "calendar.connectionEnabled"
 
@@ -331,9 +337,13 @@ extension CalendarService.Event {
         return CalendarService.holidayKeywords.contains { lowered.contains($0) }
     }
 
-    /// True when this event is eligible to drive the countdown chip.
+    /// True when this event is eligible to drive the countdown chip. Excludes
+    /// all-day events, holiday/birthday calendars, and long/multi-day events
+    /// (which would otherwise show an unbounded "ends in" countdown).
     var isCountdownEligible: Bool {
-        !isAllDay && !isFromHolidayCalendar
+        guard !isAllDay, !isFromHolidayCalendar else { return false }
+        let duration = endDate.timeIntervalSince(startDate)
+        return duration > 0 && duration <= CalendarService.maxCountdownDuration
     }
 
     /// Apple Maps query URL for the event's location, if present.

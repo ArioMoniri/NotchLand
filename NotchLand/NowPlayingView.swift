@@ -267,8 +267,26 @@ struct NowPlayingExpandedView: View {
     }
 
     private var outputDeviceButton: some View {
-        Button {
-            openSoundOutputSettings()
+        Menu {
+            let devices = AudioOutputService.outputDevices()
+            let current = AudioOutputService.defaultOutputDeviceID()
+            if devices.isEmpty {
+                Text("No output devices")
+            } else {
+                ForEach(devices) { device in
+                    Button {
+                        AudioOutputService.setDefaultOutputDevice(device.id)
+                    } label: {
+                        if device.id == current {
+                            Label(device.name, systemImage: "checkmark")
+                        } else {
+                            Text(device.name)
+                        }
+                    }
+                }
+            }
+            Divider()
+            Button("Sound Settings…") { openSoundOutputSettings() }
         } label: {
             Image(systemName: "airplayaudio")
                 .font(.system(size: 18, weight: .regular))
@@ -276,8 +294,10 @@ struct NowPlayingExpandedView: View {
                 .frame(width: 40, height: 40)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .help("Choose audio output…")
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Choose audio output")
     }
 
     private func openSoundOutputSettings() {
