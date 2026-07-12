@@ -50,6 +50,9 @@ final class WindowManager: NSObject {
     private let reminders: RemindersController
     private let btBattery: BluetoothBatteryController
     private let quickLaunch: QuickLaunchController
+    private let weather: WeatherController
+    private let cameraMirror: CameraMirrorController
+    private var cameraWindow: NSWindow?
 
     private var notchPanel: NotchPanel?
     private var dragMonitors: [Any] = []
@@ -91,7 +94,9 @@ final class WindowManager: NSObject {
         clipboard: ClipboardHistoryController,
         reminders: RemindersController,
         btBattery: BluetoothBatteryController,
-        quickLaunch: QuickLaunchController
+        quickLaunch: QuickLaunchController,
+        weather: WeatherController,
+        cameraMirror: CameraMirrorController
     ) {
         self.settings = settings
         self.appState = appState
@@ -110,6 +115,8 @@ final class WindowManager: NSObject {
         self.reminders = reminders
         self.btBattery = btBattery
         self.quickLaunch = quickLaunch
+        self.weather = weather
+        self.cameraMirror = cameraMirror
         super.init()
     }
 
@@ -226,6 +233,7 @@ final class WindowManager: NSObject {
             reminders.$authorizationStatus.dropFirst().map { _ in () }.eraseToAnyPublisher(),
             btBattery.$devices.dropFirst().map { _ in () }.eraseToAnyPublisher(),
             quickLaunch.$items.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            weather.$weather.dropFirst().map { _ in () }.eraseToAnyPublisher(),
         ])
         .sink { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshStatusMenu() }
@@ -699,11 +707,16 @@ final class WindowManager: NSObject {
         menu.addItem(expandItem)
 
         menu.addItem(.separator())
+        if let weatherItem = makeWeatherMenuItem() {
+            menu.addItem(weatherItem)
+        }
         menu.addItem(makeQuickLaunchMenuItem())
         menu.addItem(makeRemindersMenuItem())
         if let bluetoothItem = makeBluetoothMenuItem() {
             menu.addItem(bluetoothItem)
         }
+        let cameraItem = makeMenuItem(title: "Camera Mirror", action: #selector(openCameraMirror), key: "")
+        menu.addItem(cameraItem)
         menu.addItem(makeClipboardMenuItem())
         menu.addItem(.separator())
         menu.addItem(makeMenuItem(title: "Settings", action: #selector(openCompanionWindow), key: ","))
@@ -910,6 +923,48 @@ final class WindowManager: NSObject {
         }
         let detail = parts.isEmpty ? "" : "  " + parts.joined(separator: "  ")
         return device.name + detail
+    }
+
+    // MARK: - Weather menu
+
+    private func makeWeatherMenuItem() -> NSMenuItem? {
+        guard let current = weather.weather else { return nil }
+        var title = "Weather: \(current.temperatureString)"
+        if let location = current.locationName, !location.isEmpty {
+            title += " — \(location)"
+        }
+        let item = NSMenuItem(title: title, action: #selector(refreshWeather), keyEquivalent: "")
+        item.target = self
+        if let image = NSImage(systemSymbolName: current.sfSymbol, accessibilityDescription: nil) {
+            item.image = image
+        }
+        return item
+    }
+
+    @objc private func refreshWeather() {
+        weather.refresh()
+    }
+
+    // MARK: - Camera mirror window
+
+    @objc private func openCameraMirror() {
+        if cameraWindow == nil {
+            let hosting = NSHostingView(rootView: CameraMirrorView(controller: cameraMirror))
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 320, height: 240),
+                styleMask: [.titled, .closable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Camera Mirror"
+            window.contentView = hosting
+            window.isReleasedWhenClosed = false
+            window.contentAspectRatio = NSSize(width: 4, height: 3)
+            cameraWindow = window
+        }
+        cameraWindow?.center()
+        cameraWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc private func toggleNotch() {

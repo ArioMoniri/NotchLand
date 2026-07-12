@@ -25,6 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var reminders = RemindersController()
     lazy var btBattery = BluetoothBatteryController()
     lazy var quickLaunch = QuickLaunchController()
+    lazy var weather = WeatherController()
+    lazy var cameraMirror = CameraMirrorController()
     lazy var airDrop = AirDropController(settings: settings)
     lazy var liveActivities = LiveActivityController(settings: settings)
     lazy var audioActivity = AudioDeviceActivitySource(activities: liveActivities)
@@ -49,7 +51,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         clipboard: clipboard,
         reminders: reminders,
         btBattery: btBattery,
-        quickLaunch: quickLaunch
+        quickLaunch: quickLaunch,
+        weather: weather,
+        cameraMirror: cameraMirror
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -65,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         clipboard.start()
         reminders.start()
         btBattery.start()
+        weather.start()
         // Live Activities (audio-device connect, timer, downloads) is
         // temporarily unwired from the UI — leave its sources stopped so
         // they don't run in the background for a feature that can't be seen.
@@ -82,6 +87,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         clipboard.stop()
         reminders.stop()
         btBattery.stop()
+        weather.stop()
+        cameraMirror.stop()
         notchTimer.cancel()
     }
 
