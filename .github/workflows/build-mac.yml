@@ -55,10 +55,9 @@ jobs:
             CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            CODE_SIGN_ENTITLEMENTS=NotchLand/NotchLand.CI.entitlements \
             clean build
 
-      - name: Locate and verify the app
+      - name: Re-sign app to disable library validation
         id: app
         run: |
           APP_PATH="build/Build/Products/Release/NotchLand.app"
@@ -67,10 +66,23 @@ jobs:
             exit 1
           fi
           echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
+
+          # Re-sign ONLY the top-level app bundle (not the nested frameworks)
+          # ad-hoc, adding com.apple.security.cs.disable-library-validation so
+          # Hardened Runtime lets the ad-hoc app load the differently-signed
+          # Sparkle/Lottie frameworks. Overriding CODE_SIGN_ENTITLEMENTS at
+          # build time can't be scoped to just this target (it leaks into the
+          # SwiftPM stub targets), so we do it here instead.
+          codesign --force --sign - --options runtime \
+            --entitlements NotchLand/NotchLand.CI.entitlements \
+            "$APP_PATH"
+
           echo "Signature:"
           codesign -dvvv "$APP_PATH" 2>&1 || true
           echo "Embedded entitlements:"
           codesign -d --entitlements :- "$APP_PATH" 2>&1 || true
+          echo "Verify:"
+          codesign --verify --strict --verbose=2 "$APP_PATH" 2>&1 || true
 
       - name: Zip the app
         run: |
