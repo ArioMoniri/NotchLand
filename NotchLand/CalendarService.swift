@@ -52,6 +52,7 @@ final class CalendarService: ObservableObject {
     private let eventStore = EKEventStore()
     private var refreshTimer: Timer?
     private var storeChangedObserver: NSObjectProtocol?
+    private var wakeObserver: NSObjectProtocol?
 
     var canReadEvents: Bool {
         guard isConnectionEnabled else { return false }
@@ -94,6 +95,7 @@ final class CalendarService: ObservableObject {
     func start() {
         refreshAuthorizationStatus()
         observeEventStoreChanges()
+        observeSystemWake()
         refreshEvents()
         startRefreshTimer()
     }
@@ -105,6 +107,11 @@ final class CalendarService: ObservableObject {
         if let storeChangedObserver {
             NotificationCenter.default.removeObserver(storeChangedObserver)
             self.storeChangedObserver = nil
+        }
+
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
         }
     }
 
@@ -237,6 +244,23 @@ final class CalendarService: ObservableObject {
         storeChangedObserver = NotificationCenter.default.addObserver(
             forName: .EKEventStoreChanged,
             object: eventStore,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.refreshEvents()
+            }
+        }
+    }
+
+    private func observeSystemWake() {
+        guard wakeObserver == nil else { return }
+
+        // After sleep the periodic timer may have been suspended and events
+        // (or the authorization status) can have changed. Refresh on wake so
+        // the notch isn't left showing stale or empty data.
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {

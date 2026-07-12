@@ -45,6 +45,10 @@ nonisolated final class NotchSettings: ObservableObject {
         static let expandedWidth: Double = 520
         static let expandedHeight: Double = 140
 
+        /// 0 = automatic (notch / built-in display). Any other value is a
+        /// pinned CGDirectDisplayID chosen by the user.
+        static let preferredDisplayID = 0
+
         static let hoverToExpand = true
         static let collapseDelay: Double = 0.25
         static let autoCollapse = true
@@ -85,6 +89,7 @@ nonisolated final class NotchSettings: ObservableObject {
         static let collapsedHeight = "notch.collapsedHeight"
         static let expandedWidth = "notch.expandedWidth"
         static let expandedHeight = "notch.expandedHeight"
+        static let preferredDisplayID = "notch.preferredDisplayID"
         static let hoverToExpand = "notch.hoverToExpand"
         static let collapseDelay = "notch.collapseDelay"
         static let autoCollapse = "notch.autoCollapse"
@@ -129,6 +134,12 @@ nonisolated final class NotchSettings: ObservableObject {
     }
     @Published var expandedHeight: Double = read(Keys.expandedHeight, Defaults.expandedHeight) {
         didSet { Self.write(expandedHeight, Keys.expandedHeight) }
+    }
+
+    /// Which display hosts the notch. 0 = automatic (physical-notch / built-in
+    /// display); any other value is a pinned CGDirectDisplayID.
+    @Published var preferredDisplayID: Int = read(Keys.preferredDisplayID, Defaults.preferredDisplayID) {
+        didSet { Self.write(preferredDisplayID, Keys.preferredDisplayID) }
     }
 
     // Behavior
@@ -197,6 +208,7 @@ nonisolated final class NotchSettings: ObservableObject {
         collapsedHeight = Defaults.collapsedHeight
         expandedWidth = Defaults.expandedWidth
         expandedHeight = Defaults.expandedHeight
+        preferredDisplayID = Defaults.preferredDisplayID
         hoverToExpand = Defaults.hoverToExpand
         collapseDelay = Defaults.collapseDelay
         autoCollapse = Defaults.autoCollapse

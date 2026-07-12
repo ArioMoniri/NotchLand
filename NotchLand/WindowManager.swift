@@ -59,6 +59,7 @@ final class WindowManager: NSObject {
     private var pendingFrameUpdate: DispatchWorkItem?
     private var pendingOnboardingFrameShrink: DispatchWorkItem?
     private var isPointerInsideNotch = false
+    private var didStart = false
     private var screenObserver: NSObjectProtocol?
     private var spaceObserver: NSObjectProtocol?
     private var cancellables: Set<AnyCancellable> = []
@@ -120,6 +121,11 @@ final class WindowManager: NSObject {
     }
 
     func start() {
+        // Idempotent: a second start() would otherwise re-register observers and
+        // event monitors without removing the previous ones, leaking them.
+        guard !didStart else { return }
+        didStart = true
+
         observeSettings()
         observeScreenChanges()
         observeScreenLock()
@@ -171,6 +177,19 @@ final class WindowManager: NSObject {
             MainActor.assumeIsolated { self?.updateNotchFrame(animated: false) }
         }
         .store(in: &cancellables)
+
+        // Moving the notch to a different display re-frames it and re-asserts
+        // its presence (order + SkyLight elevation) on the new screen.
+        settings.$preferredDisplayID
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.updateNotchFrame(animated: false)
+                    self?.reassertNotchPresence()
+                }
+            }
+            .store(in: &cancellables)
 
         appState.$isExpanded
             .dropFirst()
@@ -953,7 +972,9 @@ final class WindowManager: NSObject {
         notchScreen() ?? panel?.screen ?? NSScreen.main ?? NSScreen.screens.first
     }
 
-    /// The display NotchLand should anchor to, in order of preference:
+    /// The display NotchLand should anchor to. When the user has pinned a
+    /// specific display in settings and it's currently connected, that wins.
+    /// Otherwise it falls back to automatic placement, in order of preference:
     /// 1. the screen exposing a top safe-area inset — i.e. the physical notch;
     /// 2. the built-in display, even if it has no notch;
     /// 3. `NSScreen.main`, then the first available screen.
@@ -961,7 +982,14 @@ final class WindowManager: NSObject {
         let screens = NSScreen.screens
         guard !screens.isEmpty else { return nil }
 
-        if let notched = screens.first(where: { $0.safeAreaInsets.top > 0 }) {
+        // User-pinned display, honored only while it's actually connected so a
+        // disconnected external display gracefully falls back to automatic.
+        if settings.preferredDisplayID != 0,
+           let pinned = screens.first(where: { $0.displayID == CGDirectDisplayID(settings.preferredDisplayID) }) {
+            return pinned
+        }
+
+        if let notched = screens.first(where: { $0.hasNotch }) {
             return notched
         }
 
@@ -1088,17 +1116,6 @@ final class WindowManager: NSObject {
 private final class NotchPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
-}
-
-private extension NSScreen {
-    /// Whether this screen is the Mac's built-in display. Mirrors the
-    /// `CGDisplayIsBuiltin` check used elsewhere for display preference.
-    var isBuiltIn: Bool {
-        guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
-            return false
-        }
-        return CGDisplayIsBuiltin(number.uint32Value) != 0
-    }
 }
 
 private final class NotchHostingView<Content: View>: NSHostingView<Content> {

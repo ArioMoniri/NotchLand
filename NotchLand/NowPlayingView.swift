@@ -238,32 +238,53 @@ struct NowPlayingExpandedView: View {
     }
 
     private var controlsRow: some View {
-        HStack(spacing: 2) {
-            ControlButton(symbol: "backward.fill", size: 16, prominent: false) {
-                nowPlaying.previousTrack()
+        ZStack {
+            // Transport controls stay centered under the scrubber.
+            HStack(spacing: 2) {
+                ControlButton(symbol: "backward.fill", size: 16, prominent: false) {
+                    nowPlaying.previousTrack()
+                }
+                ControlButton(
+                    symbol: track.isPlaying ? "pause.fill" : "play.fill",
+                    size: 26,
+                    prominent: true
+                ) {
+                    nowPlaying.togglePlayPause()
+                }
+                ControlButton(symbol: "forward.fill", size: 16, prominent: false) {
+                    nowPlaying.nextTrack()
+                }
             }
-            ControlButton(
-                symbol: track.isPlaying ? "pause.fill" : "play.fill",
-                size: 26,
-                prominent: true
-            ) {
-                nowPlaying.togglePlayPause()
+
+            // Output-device shortcut pinned to the trailing edge.
+            HStack {
+                Spacer(minLength: 0)
+                outputDeviceButton
             }
-            ControlButton(symbol: "forward.fill", size: 16, prominent: false) {
-                nowPlaying.nextTrack()
-            }
-//            outputDeviceButton
         }
         .frame(maxWidth: .infinity)
         .padding(.top, -12)
     }
 
     private var outputDeviceButton: some View {
-        Image(systemName: "airpods.gen3")
-            .font(.system(size: 18, weight: .regular))
-            .foregroundStyle(Color.white.opacity(0.85))
-            .frame(width: 40, height: 40)
-            .contentShape(Rectangle())
+        Button {
+            openSoundOutputSettings()
+        } label: {
+            Image(systemName: "airplayaudio")
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(Color.white.opacity(0.85))
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Choose audio output…")
+    }
+
+    private func openSoundOutputSettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.Sound-Settings.extension"
+        ) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func format(_ seconds: TimeInterval) -> String {
