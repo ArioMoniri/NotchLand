@@ -103,8 +103,10 @@ jobs:
           ZIP="${{ steps.pkg.outputs.zip }}"
           TAG="${{ steps.tag.outputs.tag }}"
           VERSION="${TAG#v}"
-          SIG_OUTPUT="$("$SIGN_UPDATE" "$ZIP" --ed-key-file <(printf '%s' "$SPARKLE_ED_PRIVATE_KEY"))"
-          LENGTH="$(stat -f%z "$ZIP")"
+          # sign_update prints both the edSignature and length attributes, e.g.
+          #   sparkle:edSignature="…" length="12345"
+          # so the enclosure below must NOT also declare its own length.
+          SIG_OUTPUT="$("$SIGN_UPDATE" "$ZIP" -f <(printf '%s' "$SPARKLE_ED_PRIVATE_KEY"))"
           URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${ZIP}"
           {
             echo '<?xml version="1.0" encoding="utf-8"?>'
@@ -115,7 +117,7 @@ jobs:
             echo "      <title>${VERSION}</title>"
             echo "      <sparkle:version>${VERSION}</sparkle:version>"
             echo "      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>"
-            echo "      <enclosure url=\"${URL}\" length=\"${LENGTH}\" type=\"application/octet-stream\" ${SIG_OUTPUT} />"
+            echo "      <enclosure url=\"${URL}\" type=\"application/octet-stream\" ${SIG_OUTPUT} />"
             echo "    </item>"
             echo '  </channel>'
             echo '</rss>'
