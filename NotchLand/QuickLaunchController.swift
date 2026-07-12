@@ -15,6 +15,7 @@
 import AppKit
 import Combine
 import Foundation
+import SwiftUI
 
 @MainActor
 final class QuickLaunchController: ObservableObject {

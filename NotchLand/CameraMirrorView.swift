@@ -14,6 +14,7 @@
 
 import AVFoundation
 import AppKit
+import Combine
 import SwiftUI
 
 // MARK: - Controller

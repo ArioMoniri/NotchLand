@@ -16,6 +16,7 @@ import AppKit
 import Combine
 import ServiceManagement
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 final class WindowManager: NSObject {
@@ -220,12 +221,12 @@ final class WindowManager: NSObject {
             }
             .store(in: &cancellables)
 
-        Publishers.MergeMany(
-            reminders.$reminders.dropFirst().map { _ in () },
-            reminders.$authorizationStatus.dropFirst().map { _ in () },
-            btBattery.$devices.dropFirst().map { _ in () },
-            quickLaunch.$items.dropFirst().map { _ in () }
-        )
+        Publishers.MergeMany([
+            reminders.$reminders.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            reminders.$authorizationStatus.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            btBattery.$devices.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            quickLaunch.$items.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+        ])
         .sink { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshStatusMenu() }
         }
@@ -896,7 +897,7 @@ final class WindowManager: NSObject {
         return root
     }
 
-    private static func bluetoothMenuTitle(for device: BluetoothBatteryController.BTDevice) -> String {
+    private static func bluetoothMenuTitle(for device: BTDevice) -> String {
         var parts: [String] = []
         if let left = device.left, let right = device.right {
             parts.append("L \(left)%")

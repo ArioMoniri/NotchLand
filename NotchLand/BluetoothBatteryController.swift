@@ -117,7 +117,7 @@ final class BluetoothBatteryController: ObservableObject {
     // MARK: - JSON parsing
 
     /// Parse the top-level `system_profiler` payload into `BTDevice` values.
-    static func parse(jsonData: Data) -> [BTDevice] {
+    nonisolated static func parse(jsonData: Data) -> [BTDevice] {
         let root: Any
         do {
             root = try JSONSerialization.jsonObject(with: jsonData, options: [])
@@ -155,7 +155,7 @@ final class BluetoothBatteryController: ObservableObject {
 
     /// Build a `BTDevice` from one device's info dictionary, returning `nil`
     /// when no battery value of any kind is present.
-    private static func makeDevice(name: String, info: [String: Any]) -> BTDevice? {
+    private nonisolated static func makeDevice(name: String, info: [String: Any]) -> BTDevice? {
         let main = percent(info["device_batteryLevelMain"])
         let left = percent(info["device_batteryLevelLeft"])
         let right = percent(info["device_batteryLevelRight"])
@@ -176,7 +176,7 @@ final class BluetoothBatteryController: ObservableObject {
     /// Coerce a battery field into a clamped 0...100 percentage.
     /// Accepts values like `"80%"`, `"80"`, or a raw number; returns `nil`
     /// for anything unparseable.
-    private static func percent(_ value: Any?) -> Int? {
+    private nonisolated static func percent(_ value: Any?) -> Int? {
         let raw: Int?
         switch value {
         case let string as String:
