@@ -55,6 +55,7 @@ jobs:
             CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
+            CODE_SIGN_ENTITLEMENTS=NotchLand/NotchLand.CI.entitlements \
             clean build
 
       - name: Locate and verify the app

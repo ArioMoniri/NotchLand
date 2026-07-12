@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  CI-ONLY entitlements for the unsigned/ad-hoc GitHub Actions build.
+	  It mirrors NotchLand.entitlements (the calendar Hardened Runtime
+	  entitlement) and additionally disables library validation.
+
+	  The production build is Developer-ID signed, which re-signs the bundled
+	  Sparkle/Lottie frameworks with the same Team ID, so library validation
+	  passes and it uses NotchLand.entitlements (no disable flag). An ad-hoc
+	  build has no Team ID, so Hardened Runtime's library validation refuses to
+	  load Lottie/Sparkle ("different Team IDs") and the app crashes at launch.
+	  Disabling library validation lets the ad-hoc build load them so the app
+	  can actually be tested. Do NOT use this file for production/notarized
+	  builds.
+	-->
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>
