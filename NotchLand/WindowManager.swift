@@ -46,6 +46,9 @@ final class WindowManager: NSObject {
     private let notchTimer: NotchTimerController
     private let updater: UpdaterController
     private let clipboard: ClipboardHistoryController
+    private let reminders: RemindersController
+    private let btBattery: BluetoothBatteryController
+    private let quickLaunch: QuickLaunchController
 
     private var notchPanel: NotchPanel?
     private var dragMonitors: [Any] = []
@@ -84,7 +87,10 @@ final class WindowManager: NSObject {
         liveActivities: LiveActivityController,
         notchTimer: NotchTimerController,
         updater: UpdaterController,
-        clipboard: ClipboardHistoryController
+        clipboard: ClipboardHistoryController,
+        reminders: RemindersController,
+        btBattery: BluetoothBatteryController,
+        quickLaunch: QuickLaunchController
     ) {
         self.settings = settings
         self.appState = appState
@@ -100,6 +106,9 @@ final class WindowManager: NSObject {
         self.notchTimer = notchTimer
         self.updater = updater
         self.clipboard = clipboard
+        self.reminders = reminders
+        self.btBattery = btBattery
+        self.quickLaunch = quickLaunch
         super.init()
     }
 
@@ -202,13 +211,25 @@ final class WindowManager: NSObject {
             }
             .store(in: &cancellables)
 
-        // Keep the menu-bar clipboard-history submenu current.
+        // Keep the menu-bar submenus (clipboard, reminders, Bluetooth battery,
+        // quick launch) current as their data changes.
         clipboard.$entries
             .dropFirst()
             .sink { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshStatusMenu() }
             }
             .store(in: &cancellables)
+
+        Publishers.MergeMany(
+            reminders.$reminders.dropFirst().map { _ in () },
+            reminders.$authorizationStatus.dropFirst().map { _ in () },
+            btBattery.$devices.dropFirst().map { _ in () },
+            quickLaunch.$items.dropFirst().map { _ in () }
+        )
+        .sink { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshStatusMenu() }
+        }
+        .store(in: &cancellables)
 
         settings.$hasCompletedOnboarding
             .dropFirst()
@@ -677,6 +698,11 @@ final class WindowManager: NSObject {
         menu.addItem(expandItem)
 
         menu.addItem(.separator())
+        menu.addItem(makeQuickLaunchMenuItem())
+        menu.addItem(makeRemindersMenuItem())
+        if let bluetoothItem = makeBluetoothMenuItem() {
+            menu.addItem(bluetoothItem)
+        }
         menu.addItem(makeClipboardMenuItem())
         menu.addItem(.separator())
         menu.addItem(makeMenuItem(title: "Settings", action: #selector(openCompanionWindow), key: ","))
@@ -740,6 +766,149 @@ final class WindowManager: NSObject {
 
     @objc private func clearClipboard() {
         clipboard.clear()
+    }
+
+    // MARK: - Quick Launch menu
+
+    private func makeQuickLaunchMenuItem() -> NSMenuItem {
+        let root = NSMenuItem(title: "Quick Launch", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+
+        for item in quickLaunch.items {
+            let menuItem = NSMenuItem(
+                title: item.displayName,
+                action: #selector(launchQuickItem(_:)),
+                keyEquivalent: ""
+            )
+            menuItem.target = self
+            menuItem.representedObject = item.id
+            submenu.addItem(menuItem)
+        }
+
+        if !quickLaunch.items.isEmpty {
+            submenu.addItem(.separator())
+        }
+        let addApp = NSMenuItem(title: "Add App…", action: #selector(addQuickLaunchApp), keyEquivalent: "")
+        addApp.target = self
+        submenu.addItem(addApp)
+        let addShortcut = NSMenuItem(title: "Add Shortcut…", action: #selector(addQuickLaunchShortcut), keyEquivalent: "")
+        addShortcut.target = self
+        submenu.addItem(addShortcut)
+
+        root.submenu = submenu
+        return root
+    }
+
+    @objc private func launchQuickItem(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String,
+              let item = quickLaunch.items.first(where: { $0.id == id }) else { return }
+        quickLaunch.launch(item)
+    }
+
+    @objc private func addQuickLaunchApp() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        NSApp.activate(ignoringOtherApps: true)
+        if panel.runModal() == .OK, let url = panel.url {
+            quickLaunch.addApp(url: url)
+        }
+    }
+
+    @objc private func addQuickLaunchShortcut() {
+        let alert = NSAlert()
+        alert.messageText = "Add Shortcut"
+        alert.informativeText = "Enter the exact name of a Shortcut to run."
+        alert.addButton(withTitle: "Add")
+        alert.addButton(withTitle: "Cancel")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        field.placeholderString = "Shortcut name"
+        alert.accessoryView = field
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty { quickLaunch.addShortcut(named: name) }
+        }
+    }
+
+    // MARK: - Reminders menu
+
+    private func makeRemindersMenuItem() -> NSMenuItem {
+        let root = NSMenuItem(title: "Reminders", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+
+        if !reminders.canRead {
+            let connect = NSMenuItem(title: "Enable Reminders…", action: #selector(enableReminders), keyEquivalent: "")
+            connect.target = self
+            submenu.addItem(connect)
+        } else if reminders.reminders.isEmpty {
+            let empty = NSMenuItem(title: "No reminders", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            submenu.addItem(empty)
+        } else {
+            for reminder in reminders.reminders {
+                let item = NSMenuItem(
+                    title: Self.clipboardMenuTitle(for: reminder.title),
+                    action: #selector(toggleReminder(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.state = reminder.isCompleted ? .on : .off
+                item.representedObject = reminder.id
+                submenu.addItem(item)
+            }
+        }
+
+        root.submenu = submenu
+        return root
+    }
+
+    @objc private func enableReminders() {
+        reminders.requestAccess()
+    }
+
+    @objc private func toggleReminder(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String,
+              let reminder = reminders.reminders.first(where: { $0.id == id }) else { return }
+        reminders.toggleCompletion(reminder)
+    }
+
+    // MARK: - Bluetooth battery menu
+
+    private func makeBluetoothMenuItem() -> NSMenuItem? {
+        guard !btBattery.devices.isEmpty else { return nil }
+        let root = NSMenuItem(title: "Device Battery", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+
+        for device in btBattery.devices {
+            let item = NSMenuItem(title: Self.bluetoothMenuTitle(for: device), action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            submenu.addItem(item)
+        }
+
+        root.submenu = submenu
+        return root
+    }
+
+    private static func bluetoothMenuTitle(for device: BluetoothBatteryController.BTDevice) -> String {
+        var parts: [String] = []
+        if let left = device.left, let right = device.right {
+            parts.append("L \(left)%")
+            parts.append("R \(right)%")
+            if let box = device.batteryCase { parts.append("Case \(box)%") }
+        } else if let main = device.main {
+            parts.append("\(main)%")
+        } else if let box = device.batteryCase {
+            parts.append("Case \(box)%")
+        }
+        let detail = parts.isEmpty ? "" : "  " + parts.joined(separator: "  ")
+        return device.name + detail
     }
 
     @objc private func toggleNotch() {

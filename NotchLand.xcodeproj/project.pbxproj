@@ -370,6 +370,10 @@
 				INFOPLIST_KEY_LSUIElement = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "NotchLand uses Calendar access to show today's events in the notch.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "NotchLand uses Calendar access to show today's events in the notch.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "NotchLand shows and completes your Reminders from the menu bar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "NotchLand shows a camera mirror in the expanded notch.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "NotchLand uses your location to show local weather in the notch.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "NotchLand uses your location to show local weather in the notch.";
 				INFOPLIST_KEY_NSFocusStatusUsageDescription = "NotchLand uses Focus status to show a notch alert when Focus turns on.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Rudra Shah. Licensed under the Apache License 2.0.";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -410,6 +414,10 @@
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "NotchLand uses Calendar access to show today's events in the notch.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "NotchLand uses Calendar access to show today's events in the notch.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "NotchLand shows and completes your Reminders from the menu bar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "NotchLand shows a camera mirror in the expanded notch.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "NotchLand uses your location to show local weather in the notch.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "NotchLand uses your location to show local weather in the notch.";
 				INFOPLIST_KEY_NSFocusStatusUsageDescription = "NotchLand uses Focus status to show a notch alert when Focus turns on.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Rudra Shah. Licensed under the Apache License 2.0.";
 				LD_RUNPATH_SEARCH_PATHS = (
