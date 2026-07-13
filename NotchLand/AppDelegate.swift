@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var quickLaunch = QuickLaunchController()
     lazy var weather = WeatherController()
     lazy var cameraMirror = CameraMirrorController()
+    lazy var fileShelf = FileShelfController()
     lazy var airDrop = AirDropController(settings: settings)
     lazy var liveActivities = LiveActivityController(settings: settings)
     lazy var audioActivity = AudioDeviceActivitySource(activities: liveActivities)
@@ -53,7 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         btBattery: btBattery,
         quickLaunch: quickLaunch,
         weather: weather,
-        cameraMirror: cameraMirror
+        cameraMirror: cameraMirror,
+        fileShelf: fileShelf
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {

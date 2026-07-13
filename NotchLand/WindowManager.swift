@@ -52,7 +52,9 @@ final class WindowManager: NSObject {
     private let quickLaunch: QuickLaunchController
     private let weather: WeatherController
     private let cameraMirror: CameraMirrorController
+    private let fileShelf: FileShelfController
     private var cameraWindow: NSWindow?
+    private var shelfWindow: NSWindow?
 
     private var notchPanel: NotchPanel?
     private var dragMonitors: [Any] = []
@@ -96,7 +98,8 @@ final class WindowManager: NSObject {
         btBattery: BluetoothBatteryController,
         quickLaunch: QuickLaunchController,
         weather: WeatherController,
-        cameraMirror: CameraMirrorController
+        cameraMirror: CameraMirrorController,
+        fileShelf: FileShelfController
     ) {
         self.settings = settings
         self.appState = appState
@@ -117,6 +120,7 @@ final class WindowManager: NSObject {
         self.quickLaunch = quickLaunch
         self.weather = weather
         self.cameraMirror = cameraMirror
+        self.fileShelf = fileShelf
         super.init()
     }
 
@@ -717,6 +721,8 @@ final class WindowManager: NSObject {
         }
         let cameraItem = makeMenuItem(title: "Camera Mirror", action: #selector(openCameraMirror), key: "")
         menu.addItem(cameraItem)
+        let shelfItem = makeMenuItem(title: "File Shelf", action: #selector(openFileShelf), key: "")
+        menu.addItem(shelfItem)
         menu.addItem(makeClipboardMenuItem())
         menu.addItem(.separator())
         menu.addItem(makeMenuItem(title: "Settings", action: #selector(openCompanionWindow), key: ","))
@@ -964,6 +970,28 @@ final class WindowManager: NSObject {
         }
         cameraWindow?.center()
         cameraWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // MARK: - File shelf window
+
+    @objc private func openFileShelf() {
+        if shelfWindow == nil {
+            let hosting = NSHostingView(rootView: FileShelfView(controller: fileShelf))
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 360, height: 300),
+                styleMask: [.titled, .closable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "File Shelf"
+            window.contentView = hosting
+            window.isReleasedWhenClosed = false
+            window.contentMinSize = NSSize(width: 280, height: 200)
+            shelfWindow = window
+        }
+        shelfWindow?.center()
+        shelfWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
