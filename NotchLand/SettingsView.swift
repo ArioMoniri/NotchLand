@@ -50,6 +50,9 @@ struct SettingsView: View {
         case .calendar:
             CalendarSettingsView()
 
+        case .widgets:
+            WidgetsSettingsView()
+
         case .behavior:
             BehaviorSettingsView()
 

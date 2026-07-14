@@ -1060,6 +1060,13 @@ final class WindowManager: NSObject {
                 .environmentObject(liveActivities)
                 .environmentObject(notchTimer)
                 .environmentObject(updater)
+                .environmentObject(quickLaunch)
+                .environmentObject(reminders)
+                .environmentObject(weather)
+                .environmentObject(btBattery)
+                .environmentObject(cameraMirror)
+                .environmentObject(fileShelf)
+                .environmentObject(clipboard)
         )
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 520),
