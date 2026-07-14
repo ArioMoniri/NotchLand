@@ -1127,6 +1127,9 @@ final class WindowManager: NSObject {
                 .environmentObject(airDrop)
                 .environmentObject(liveActivities)
                 .environmentObject(notchTimer)
+                .environmentObject(weather)
+                .environmentObject(reminders)
+                .environmentObject(btBattery)
         )
         hosting.autoresizingMask = [.width, .height]
         hosting.wantsLayer = true
