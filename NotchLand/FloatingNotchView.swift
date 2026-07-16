@@ -836,20 +836,14 @@ struct FloatingNotchView: View {
             }
         case "airdrop-drop-target":
             AirDropZoneView()
-        case "expanded-music":
-            if let track = nowPlaying.track {
-                NowPlayingExpandedView(track: track, morphNamespace: morph)
-            } else {
-                CalendarNotchView()
-            }
+        case "expanded-music", "expanded-bare":
+            ExpandedNotchPanelsView(morphNamespace: morph)
         case "expanded-event-detail":
             if let event = countdown.trackedEvent {
                 FocusedEventDetailView(event: event)
             } else {
-                CalendarNotchView()
+                ExpandedNotchPanelsView(morphNamespace: morph)
             }
-        case "expanded-bare":
-            CalendarNotchView()
         case "expanded-onboarding":
             OnboardingView(wizardStep: $onboardingWizardStep) {
                 settings.hasCompletedOnboarding = true
@@ -1051,12 +1045,9 @@ struct FloatingNotchView: View {
                     height: EventDetailMetrics.eventOnlySize.height
                 )
             }
-            if hasMusic {
-                return CGSize(
-                    width: NowPlayingMetrics.expandedSize.width + extra,
-                    height: NowPlayingMetrics.expandedSize.height
-                )
-            }
+            // Expanded music and bare states share the calendar size so the
+            // in-notch panel switcher can move between panels (music, calendar,
+            // weather, reminders, camera, shelf, …) without resizing the notch.
             return CGSize(
                 width: max(CGFloat(settings.expandedWidth), CalendarNotchMetrics.expandedSize.width) + extra,
                 height: CalendarNotchMetrics.expandedSize.height

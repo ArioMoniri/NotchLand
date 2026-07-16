@@ -1130,6 +1130,10 @@ final class WindowManager: NSObject {
                 .environmentObject(weather)
                 .environmentObject(reminders)
                 .environmentObject(btBattery)
+                .environmentObject(cameraMirror)
+                .environmentObject(fileShelf)
+                .environmentObject(clipboard)
+                .environmentObject(quickLaunch)
         )
         hosting.autoresizingMask = [.width, .height]
         hosting.wantsLayer = true
@@ -1400,12 +1404,9 @@ final class WindowManager: NSObject {
                     height: EventDetailMetrics.eventOnlySize.height
                 )
             }
-            if hasMusic {
-                return CGSize(
-                    width: NowPlayingMetrics.expandedSize.width + extra,
-                    height: NowPlayingMetrics.expandedSize.height
-                )
-            }
+            // Mirrors FloatingNotchView: expanded music + bare states share the
+            // calendar size so the in-notch panel switcher can move between
+            // panels without resizing the notch.
             return CGSize(
                 width: max(CGFloat(settings.expandedWidth), CalendarNotchMetrics.expandedSize.width) + extra,
                 height: CalendarNotchMetrics.expandedSize.height
