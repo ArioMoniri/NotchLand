@@ -14,7 +14,7 @@
 
 import SwiftUI
 
-enum NotchPanel: String, CaseIterable, Identifiable {
+enum NotchPanelTab: String, CaseIterable, Identifiable {
     case music, calendar, weather, reminders, camera, shelf, clipboard, quickLaunch
 
     var id: String { rawValue }
@@ -40,15 +40,15 @@ struct ExpandedNotchPanelsView: View {
     @EnvironmentObject var cameraMirror: CameraMirrorController
     @EnvironmentObject var fileShelf: FileShelfController
 
-    @State private var selected: NotchPanel?
+    @State private var selected: NotchPanelTab?
 
-    private var availablePanels: [NotchPanel] {
-        NotchPanel.allCases.filter { panel in
+    private var availablePanels: [NotchPanelTab] {
+        NotchPanelTab.allCases.filter { panel in
             panel != .music || nowPlaying.track != nil
         }
     }
 
-    private var activePanel: NotchPanel {
+    private var activePanel: NotchPanelTab {
         let resolved = selected ?? (nowPlaying.track != nil ? .music : .calendar)
         return availablePanels.contains(resolved) ? resolved : .calendar
     }
@@ -67,7 +67,7 @@ struct ExpandedNotchPanelsView: View {
     }
 
     @ViewBuilder
-    private func panelContent(_ panel: NotchPanel) -> some View {
+    private func panelContent(_ panel: NotchPanelTab) -> some View {
         switch panel {
         case .music:
             if let track = nowPlaying.track {
@@ -78,9 +78,9 @@ struct ExpandedNotchPanelsView: View {
         case .calendar:
             CalendarNotchView()
         case .weather:
-            WeatherNotchPanel()
+            WeatherNotchPanelTab()
         case .reminders:
-            RemindersNotchPanel()
+            RemindersNotchPanelTab()
         case .camera:
             CameraMirrorView(controller: cameraMirror)
                 .padding(.horizontal, 18)
@@ -90,9 +90,9 @@ struct ExpandedNotchPanelsView: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
         case .clipboard:
-            ClipboardNotchPanel()
+            ClipboardNotchPanelTab()
         case .quickLaunch:
-            QuickLaunchNotchPanel()
+            QuickLaunchNotchPanelTab()
         }
     }
 
@@ -131,7 +131,7 @@ struct ExpandedNotchPanelsView: View {
 
 // MARK: - Lightweight panels
 
-private struct WeatherNotchPanel: View {
+private struct WeatherNotchPanelTab: View {
     @EnvironmentObject var weather: WeatherController
 
     var body: some View {
@@ -167,7 +167,7 @@ private struct WeatherNotchPanel: View {
     }
 }
 
-private struct RemindersNotchPanel: View {
+private struct RemindersNotchPanelTab: View {
     @EnvironmentObject var reminders: RemindersController
 
     var body: some View {
@@ -214,7 +214,7 @@ private struct RemindersNotchPanel: View {
     }
 }
 
-private struct ClipboardNotchPanel: View {
+private struct ClipboardNotchPanelTab: View {
     @EnvironmentObject var clipboard: ClipboardHistoryController
 
     var body: some View {
@@ -258,7 +258,7 @@ private struct ClipboardNotchPanel: View {
     }
 }
 
-private struct QuickLaunchNotchPanel: View {
+private struct QuickLaunchNotchPanelTab: View {
     @EnvironmentObject var quickLaunch: QuickLaunchController
 
     private let columns = [GridItem(.adaptive(minimum: 70, maximum: 100), spacing: 10)]
