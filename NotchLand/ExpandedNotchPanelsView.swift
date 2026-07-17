@@ -31,6 +31,19 @@ enum NotchPanelTab: String, CaseIterable, Identifiable {
         case .quickLaunch: "square.grid.2x2"
         }
     }
+
+    var title: String {
+        switch self {
+        case .music: "Music"
+        case .calendar: "Calendar"
+        case .weather: "Weather"
+        case .reminders: "Reminders"
+        case .camera: "Camera"
+        case .shelf: "Shelf"
+        case .clipboard: "Clipboard"
+        case .quickLaunch: "Quick Launch"
+        }
+    }
 }
 
 struct ExpandedNotchPanelsView: View {
@@ -54,13 +67,13 @@ struct ExpandedNotchPanelsView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        VStack(spacing: 0) {
             panelContent(activePanel)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .padding(.bottom, 30)
 
             switcherBar
-                .padding(.bottom, 8)
+                .padding(.top, 3)
+                .padding(.bottom, 9)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .foregroundStyle(.white)
@@ -97,34 +110,36 @@ struct ExpandedNotchPanelsView: View {
     }
 
     private var switcherBar: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             ForEach(availablePanels) { panel in
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                         selected = panel
                     }
                 } label: {
                     Image(systemName: panel.symbol)
                         .font(.system(size: 12, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(panel == activePanel ? Color.white : Color.white.opacity(0.5))
-                        .frame(width: 26, height: 22)
+                        .frame(width: 30, height: 24)
                         .background {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(panel == activePanel ? Color.white.opacity(0.18) : Color.clear)
+                            if panel == activePanel {
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(.white.opacity(0.16))
+                            }
                         }
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .help(panel.title)
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 5)
         .padding(.vertical, 4)
-        .background {
+        .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+        .overlay {
             Capsule(style: .continuous)
-                .fill(Color.white.opacity(0.08))
-                .overlay {
-                    Capsule(style: .continuous)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
-                }
+                .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
         }
     }
 }

@@ -158,7 +158,7 @@ struct FileShelfView: View {
             Divider()
             content
         }
-        .frame(minWidth: 300, minHeight: 220)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             handleDrop(providers)
         }

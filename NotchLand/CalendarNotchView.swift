@@ -18,9 +18,6 @@ enum CalendarNotchMetrics {
 
 struct CalendarNotchView: View {
     @EnvironmentObject var calendar: CalendarService
-    @EnvironmentObject var weather: WeatherController
-    @EnvironmentObject var reminders: RemindersController
-    @EnvironmentObject var btBattery: BluetoothBatteryController
     @State private var selectedDate = Date()
 
     private let systemCalendar = Foundation.Calendar.current
@@ -73,85 +70,8 @@ struct CalendarNotchView: View {
                     dayButton(day)
                 }
             }
-
-            Spacer(minLength: 6)
-
-            widgetStrip
         }
         .frame(maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    // MARK: - In-notch widgets
-
-    /// Compact live widgets shown under the month grid: weather, the next
-    /// reminder, and connected-device battery. Each element only appears when
-    /// it has data, so the strip is empty (and invisible) until then.
-    @ViewBuilder
-    private var widgetStrip: some View {
-        let nextReminder = reminders.reminders.first { !$0.isCompleted }
-        let batteryDevice = btBattery.devices.first
-        let hasAny = weather.weather != nil || nextReminder != nil || batteryDevice != nil
-
-        if hasAny {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 10) {
-                    if let current = weather.weather {
-                        Label {
-                            Text(current.temperatureString)
-                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                .monospacedDigit()
-                        } icon: {
-                            Image(systemName: current.sfSymbol)
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                        .foregroundStyle(Color.white.opacity(0.82))
-                    }
-
-                    Spacer(minLength: 0)
-
-                    if let batteryDevice, let label = batteryLabel(for: batteryDevice) {
-                        Label {
-                            Text(label)
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                .monospacedDigit()
-                        } icon: {
-                            Image(systemName: "airpods")
-                                .font(.system(size: 10, weight: .semibold))
-                        }
-                        .foregroundStyle(Color.white.opacity(0.7))
-                    }
-                }
-
-                if let nextReminder {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checklist")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Color.orange.opacity(0.85))
-                        Text(nextReminder.title)
-                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                            .foregroundStyle(Color.white.opacity(0.8))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        Spacer(minLength: 0)
-                    }
-                }
-            }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 7)
-            .background {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
-            }
-        }
-    }
-
-    private func batteryLabel(for device: BTDevice) -> String? {
-        if let left = device.left, let right = device.right {
-            return "\(min(left, right))%"
-        }
-        if let main = device.main { return "\(main)%" }
-        if let box = device.batteryCase { return "\(box)%" }
-        return nil
     }
 
     private var weekdayHeader: some View {
