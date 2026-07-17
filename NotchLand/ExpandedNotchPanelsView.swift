@@ -150,31 +150,39 @@ private struct WeatherNotchPanelTab: View {
     var body: some View {
         Group {
             if let current = weather.weather {
-                VStack(spacing: 4) {
-                    Image(systemName: current.sfSymbol)
-                        .symbolRenderingMode(.multicolor)
-                        .font(.system(size: 46, weight: .medium))
-                        .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
-
-                    Text(current.temperatureString)
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-
-                    Text(Self.condition(for: current.code))
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.75))
-
-                    HStack(spacing: 12) {
-                        if let feels = current.apparentC {
-                            Label("Feels \(Int(feels.rounded()))°", systemImage: "thermometer.medium")
-                        }
+                HStack(spacing: 22) {
+                    VStack(spacing: 2) {
+                        Image(systemName: current.sfSymbol)
+                            .symbolRenderingMode(.multicolor)
+                            .font(.system(size: 44, weight: .medium))
+                            .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+                        Text(current.temperatureString)
+                            .font(.system(size: 40, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                        Text(Self.condition(for: current.code))
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.75))
                         if let location = current.locationName {
                             Label(location, systemImage: "location.fill")
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.5))
                         }
                     }
-                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .padding(.top, 2)
+
+                    VStack(alignment: .leading, spacing: 9) {
+                        if let highLow = current.highLowString {
+                            detailRow("thermometer.high", highLow)
+                        }
+                        if let feels = current.apparentString {
+                            detailRow("thermometer.medium", "Feels \(feels)")
+                        }
+                        if let humidity = current.humidityString {
+                            detailRow("humidity.fill", humidity)
+                        }
+                        if let wind = current.windString {
+                            detailRow("wind", wind)
+                        }
+                    }
                 }
             } else {
                 Button {
@@ -197,6 +205,21 @@ private struct WeatherNotchPanelTab: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { weather.refresh() }
+    }
+
+    private func detailRow(_ symbol: String, _ text: String) -> some View {
+        Label {
+            Text(text)
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .monospacedDigit()
+        } icon: {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(width: 18)
+        }
+        .foregroundStyle(.white.opacity(0.85))
     }
 
     private static func condition(for code: Int) -> String {
@@ -260,6 +283,7 @@ private struct RemindersNotchPanelTab: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, 20)
         .padding(.top, 16)
+        .onAppear { reminders.refresh() }
     }
 }
 

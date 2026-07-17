@@ -16,6 +16,8 @@
 	  can actually be tested. Do NOT use this file for production/notarized
 	  builds.
 	-->
+	<key>com.apple.security.personal-information.reminders</key>
+	<true/>
 	<key>com.apple.security.personal-information.calendars</key>
 	<true/>
 	<key>com.apple.security.device.camera</key>

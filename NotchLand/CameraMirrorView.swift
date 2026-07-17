@@ -143,24 +143,26 @@ final class CameraPreviewNSView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        wantsLayer = true
         configureLayer()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        wantsLayer = true
         configureLayer()
     }
 
     private func configureLayer() {
         previewLayer.videoGravity = .resizeAspectFill
+        // Layer-HOSTING view: assign the custom layer BEFORE enabling
+        // wantsLayer, or AppKit installs its own backing layer and the preview
+        // never renders.
+        layer = previewLayer
+        wantsLayer = true
         // Mirror horizontally so it behaves like a real mirror (self-view).
         previewLayer.connection?.automaticallyAdjustsVideoMirroring = false
         if previewLayer.connection?.isVideoMirroringSupported == true {
             previewLayer.connection?.isVideoMirrored = true
         }
-        layer = previewLayer
     }
 
     override func layout() {
@@ -218,20 +220,37 @@ struct CameraMirrorView: View {
     }
 
     private var placeholder: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.black.opacity(0.35))
-            .overlay {
-                VStack(spacing: 8) {
-                    Image(systemName: "video.slash")
-                        .font(.system(size: 24, weight: .regular))
-                        .foregroundStyle(.secondary)
-                    Text(controller.isAuthorized ? "Starting camera…" : "Camera access needed")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(8)
+        Button {
+            if controller.isAuthorized {
+                controller.start()
+            } else {
+                openCameraSettings()
             }
+        } label: {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay {
+                    VStack(spacing: 8) {
+                        Image(systemName: controller.isAuthorized ? "camera" : "video.slash")
+                            .font(.system(size: 24, weight: .regular))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Text(controller.isAuthorized ? "Starting camera…" : "Enable Camera access")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(8)
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func openCameraSettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera"
+        ) else { return }
+        NSWorkspace.shared.open(url)
     }
 }
 

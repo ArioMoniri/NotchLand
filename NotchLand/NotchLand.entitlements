@@ -11,6 +11,8 @@
 	  false ("Calendar access was not granted") and the permission prompt never
 	  appears, leaving the connection stuck as "Not Connected".
 	-->
+	<key>com.apple.security.personal-information.reminders</key>
+	<true/>
 	<key>com.apple.security.personal-information.calendars</key>
 	<true/>
 	<key>com.apple.security.device.camera</key>

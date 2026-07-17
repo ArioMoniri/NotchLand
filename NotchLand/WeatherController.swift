@@ -23,6 +23,18 @@ final class WeatherController: NSObject, ObservableObject, CLLocationManagerDele
         let code: Int
         let isDay: Bool
         let locationName: String?
+        var humidity: Int?
+        var windKph: Double?
+        var highC: Double?
+        var lowC: Double?
+
+        var humidityString: String? { humidity.map { "\($0)%" } }
+        var windString: String? { windKph.map { "\(Int($0.rounded())) km/h" } }
+        var highLowString: String? {
+            guard let highC, let lowC else { return nil }
+            return "H:\(Int(highC.rounded()))°  L:\(Int(lowC.rounded()))°"
+        }
+        var apparentString: String? { apparentC.map { "\(Int($0.rounded()))°" } }
 
         /// SF Symbol name mapping Open-Meteo WMO weather codes to system icons.
         var sfSymbol: String {
@@ -213,7 +225,11 @@ final class WeatherController: NSObject, ObservableObject, CLLocationManagerDele
                     apparentC: current.apparent_temperature,
                     code: current.weather_code,
                     isDay: current.is_day != 0,
-                    locationName: name
+                    locationName: name,
+                    humidity: current.relative_humidity_2m,
+                    windKph: current.wind_speed_10m,
+                    highC: decoded.daily?.temperature_2m_max.first,
+                    lowC: decoded.daily?.temperature_2m_min.first
                 )
 
                 if Task.isCancelled { return }
@@ -241,8 +257,10 @@ final class WeatherController: NSObject, ObservableObject, CLLocationManagerDele
             URLQueryItem(name: "longitude", value: String(longitude)),
             URLQueryItem(
                 name: "current",
-                value: "temperature_2m,apparent_temperature,is_day,weather_code"
+                value: "temperature_2m,apparent_temperature,is_day,weather_code,relative_humidity_2m,wind_speed_10m"
             ),
+            URLQueryItem(name: "daily", value: "temperature_2m_max,temperature_2m_min"),
+            URLQueryItem(name: "forecast_days", value: "1"),
             URLQueryItem(name: "timezone", value: "auto"),
         ]
         return components?.url
@@ -271,12 +289,20 @@ final class WeatherController: NSObject, ObservableObject, CLLocationManagerDele
 
     private struct ForecastResponse: Decodable {
         let current: Current
+        let daily: Daily?
 
         struct Current: Decodable {
             let temperature_2m: Double
             let apparent_temperature: Double?
             let is_day: Int
             let weather_code: Int
+            let relative_humidity_2m: Int?
+            let wind_speed_10m: Double?
+        }
+
+        struct Daily: Decodable {
+            let temperature_2m_max: [Double]
+            let temperature_2m_min: [Double]
         }
     }
 }
