@@ -148,14 +148,18 @@ final class FileShelfController: ObservableObject {
 /// Standalone Shelf window. Drop files in, drag them back out.
 struct FileShelfView: View {
     @ObservedObject var controller: FileShelfController
+    /// Compact mode drops the window chrome and tightens insets for the notch.
+    var compact: Bool = false
     @State private var isTargeted = false
 
     private let columns = [GridItem(.adaptive(minimum: 84, maximum: 120), spacing: 12)]
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
-            Divider()
+            if !compact {
+                toolbar
+                Divider()
+            }
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -164,9 +168,9 @@ struct FileShelfView: View {
         }
         .overlay {
             if isTargeted {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(Color.accentColor, lineWidth: 2)
-                    .padding(4)
+                    .padding(compact ? 2 : 4)
                     .allowsHitTesting(false)
             }
         }
@@ -209,24 +213,25 @@ struct FileShelfView: View {
     }
 
     private var emptyState: some View {
-        VStack {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(
-                    style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
-                )
-                .foregroundStyle(.secondary.opacity(0.5))
-                .overlay {
-                    VStack(spacing: 6) {
-                        Image(systemName: "tray.and.arrow.down")
-                            .font(.system(size: 26))
-                            .foregroundStyle(.secondary)
-                        Text("Drop files here")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .strokeBorder(
+                style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+            )
+            .foregroundStyle(.secondary.opacity(0.5))
+            .overlay {
+                VStack(spacing: 6) {
+                    Image(systemName: "tray.and.arrow.down")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.secondary)
+                    Text("Drop files here")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(16)
-        }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, compact ? 26 : 16)
+            .padding(.top, compact ? 6 : 16)
+            .padding(.bottom, compact ? 6 : 16)
     }
 
     private var itemCountLabel: String {

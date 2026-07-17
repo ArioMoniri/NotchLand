@@ -99,9 +99,7 @@ struct ExpandedNotchPanelsView: View {
                 .padding(.horizontal, 18)
                 .padding(.top, 14)
         case .shelf:
-            FileShelfView(controller: fileShelf)
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
+            FileShelfView(controller: fileShelf, compact: true)
         case .clipboard:
             ClipboardNotchPanelTab()
         case .quickLaunch:
@@ -150,35 +148,71 @@ private struct WeatherNotchPanelTab: View {
     @EnvironmentObject var weather: WeatherController
 
     var body: some View {
-        VStack(spacing: 10) {
+        Group {
             if let current = weather.weather {
-                Image(systemName: current.sfSymbol)
-                    .font(.system(size: 46, weight: .semibold))
-                    .symbolRenderingMode(.hierarchical)
-                Text(current.temperatureString)
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                if let location = current.locationName {
-                    Text(location)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.6))
+                VStack(spacing: 4) {
+                    Image(systemName: current.sfSymbol)
+                        .symbolRenderingMode(.multicolor)
+                        .font(.system(size: 46, weight: .medium))
+                        .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+
+                    Text(current.temperatureString)
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+
+                    Text(Self.condition(for: current.code))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.75))
+
+                    HStack(spacing: 12) {
+                        if let feels = current.apparentC {
+                            Label("Feels \(Int(feels.rounded()))°", systemImage: "thermometer.medium")
+                        }
+                        if let location = current.locationName {
+                            Label(location, systemImage: "location.fill")
+                        }
+                    }
+                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .padding(.top, 2)
                 }
             } else {
-                Image(systemName: "location.slash")
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.6))
-                Text(weather.errorMessage ?? "Waiting for location…")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
-                Button("Refresh") { weather.refresh() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.8))
+                Button {
+                    weather.refresh()
+                } label: {
+                    VStack(spacing: 8) {
+                        Image(systemName: "location.circle")
+                            .font(.system(size: 30, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.75))
+                        Text("Enable Weather")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        Text(weather.errorMessage ?? "Tap to allow Location access.")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .multilineTextAlignment(.center)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.top, 18)
+    }
+
+    private static func condition(for code: Int) -> String {
+        switch code {
+        case 0: "Clear"
+        case 1, 2: "Partly Cloudy"
+        case 3: "Cloudy"
+        case 45, 48: "Fog"
+        case 51, 53, 55, 56, 57: "Drizzle"
+        case 61, 63, 65, 66, 67: "Rain"
+        case 71, 73, 75, 77: "Snow"
+        case 80, 81, 82: "Showers"
+        case 85, 86: "Snow Showers"
+        case 95, 96, 99: "Thunderstorm"
+        default: "—"
+        }
     }
 }
 

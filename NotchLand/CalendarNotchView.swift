@@ -212,20 +212,27 @@ struct CalendarNotchView: View {
     }
 
     private var connectionPrompt: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: "calendar.badge.plus")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.8))
-            Text("Connect Calendar")
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-            Text("Allow access in the companion app.")
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.5))
-                .lineLimit(2)
+        Button {
+            calendar.requestAccess()
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: "calendar.badge.plus")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                Text("Connect Calendar")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text(calendar.errorMessage ?? "Tap to allow Calendar access.")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(calendar.errorMessage == nil ? Color.white.opacity(0.5) : Color.red.opacity(0.8))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .padding(.top, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .buttonStyle(.plain)
     }
 
     private var emptyAgenda: some View {
